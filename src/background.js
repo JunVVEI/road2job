@@ -1,6 +1,6 @@
 'use strict'
 
-import {app, protocol, BrowserWindow, ipcMain} from 'electron'
+import {app, protocol, BrowserWindow, ipcMain, shell} from 'electron'
 import {createProtocol} from 'vue-cli-plugin-electron-builder/lib'
 import installExtension, {VUEJS3_DEVTOOLS} from 'electron-devtools-installer'
 import {readFile, writeFile} from "@/js/file";
@@ -30,9 +30,7 @@ async function createWindow() {
     ipcMain.on('read', e => {
         readFile(dataPath).then((res, rej) => {
             e.sender.send('dataSource', res)
-            // console.log(dataPath)
         }).catch((err) => {
-            // console.log(err);
             fs.open(dataPath, function (err) {
             })
         })
@@ -45,6 +43,11 @@ async function createWindow() {
             console.log(err);
         })
     })
+
+    ipcMain.on('openUrl', (e, content) => {
+        shell.openExternal(content)
+    })
+
     if (process.env.WEBPACK_DEV_SERVER_URL) {
         // Load the url of the dev server if in development mode
         await win.loadURL(process.env.WEBPACK_DEV_SERVER_URL)
@@ -54,6 +57,8 @@ async function createWindow() {
         // Load the index.html when not in development
         win.loadURL('app://./index.html')
     }
+
+
 }
 
 // Quit when all windows are closed.
@@ -100,3 +105,4 @@ if (isDevelopment) {
         })
     }
 }
+

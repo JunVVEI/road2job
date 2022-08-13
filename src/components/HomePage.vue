@@ -2,8 +2,11 @@
   <div id="main">
     <a-button class="editable-add-btn" style="margin-bottom: 8px" @click="handleAdd">Add</a-button>
     <a-table :dataSource="dataSource" :columns="columns" bordered :pagination="false">
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.dataIndex === 'operation'">
+      <template #bodyCell="{ column, text, record}">
+        <template v-if="column.key === 'link'">
+          <a @click="openUrl(text)">{{ text }}</a>
+        </template>
+        <template v-else-if="column.dataIndex === 'operation'">
           <a-button type="link" @click="seeDetail(record)">查看详情</a-button>
           <a-button type="link" @click="edit(record)">编辑</a-button>
           <a-popconfirm
@@ -24,7 +27,6 @@
         <a-descriptions-item v-for="(value, key) in detailInfo" :key="key" :label="key">
           {{ value }}
         </a-descriptions-item>
-
       </a-descriptions>
     </a-modal>
     <a-modal v-model:visible="showEdit" title="编辑" @ok="handleEditOk" style="width: 50vw">
@@ -46,15 +48,14 @@
         <a-form-item label="投递地址" name="link">
           <a-input v-model:value="editData.link"/>
         </a-form-item>
-
-                <a-form-item label="投递时间" name="submitTime">
-                  <a-date-picker
-                      v-model:value="editData.submitTime"
-                      format="YYYY-MM-DD HH:mm:ss"
-                      valueFormat="YYYY-MM-DD HH:mm:ss"
-                      :show-time="{ defaultValue: dayjs('00:00:00', 'HH:mm:ss') }"
-                  />
-                </a-form-item>
+        <a-form-item label="投递时间" name="submitTime">
+          <a-date-picker
+              v-model:value="editData.submitTime"
+              format="YYYY-MM-DD HH:mm:ss"
+              valueFormat="YYYY-MM-DD HH:mm:ss"
+              :show-time="{ defaultValue: dayjs('00:00:00', 'HH:mm:ss') }"
+          />
+        </a-form-item>
       </a-form>
     </a-modal>
     <a-modal v-model:visible="showAdd" title="新增数据" @ok="handleAddOk">
@@ -86,6 +87,9 @@
           />
         </a-form-item>
 
+        <a-form-item label="岗位描述" name="jd">
+          <a-input v-model:value="newRow.jd"/>
+        </a-form-item>
       </a-form>
     </a-modal>
   </div>
@@ -123,7 +127,13 @@ export default {
         dataIndex: 'operation',
       }
     ]
-    const dataSource = ref([])
+    const dataSource = ref([{
+      "company": "丰疆智能",
+      "job": "移动客户端开发工程师",
+      "link": "https://fjdynamics.zhiye.com/Portal/Apply/Index",
+      "submitTime": "2022-08-14 00:37:48",
+      "key": "1"
+    }])
     const count = computed(() => dataSource.value.length + 1)
 
     let showAdd = ref(false)
@@ -132,6 +142,7 @@ export default {
       job: '',
       link: '',
       submitTime: '',
+      jd: '',
     })
 
     let showDetail = ref(false)
@@ -198,7 +209,7 @@ export default {
 
     const key2title = (key) => {
       for (let item of columns) {
-        if (item.key == key) {
+        if (item.key === key) {
           return item.title
         }
       }
@@ -210,6 +221,10 @@ export default {
     }
     const save = () => {
       window.ipcRenderer.send("write", JSON.stringify(dataSource.value))
+    }
+
+    const openUrl = (url) => {
+      window.ipcRenderer.send("openUrl", url)
     }
 
     return {
@@ -233,7 +248,9 @@ export default {
       edit,
       handleEditOk,
 
-      onDelete
+      onDelete,
+
+      openUrl
     }
   },
 
