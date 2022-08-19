@@ -6,6 +6,11 @@
         <template v-if="column.key === 'link'">
           <a @click="openUrl(text)">{{ text }}</a>
         </template>
+        <template v-else-if="column.key === 'status'">
+          <div>
+            <a-tag :color="status[text]">{{ text }}</a-tag>
+          </div>
+        </template>
         <template v-else-if="column.dataIndex === 'operation'">
           <a-button type="link" @click="seeDetail(record)">查看详情</a-button>
           <a-button type="link" @click="edit(record)">编辑</a-button>
@@ -22,9 +27,47 @@
       </template>
     </a-table>
 
+    <a-modal v-model:visible="showAdd" title="新增数据" @ok="handleAddOk" style="width: 50vw">
+      <a-form
+          :model="newRow"
+          name="basic"
+          :label-col="{ span: 6 }"
+          :wrapper-col="{ span: 16 }"
+          autocomplete="off"
+      >
+        <a-form-item label="公司">
+          <a-input v-model:value="newRow.company"/>
+        </a-form-item>
+        <a-form-item label="岗位">
+          <a-input v-model:value="newRow.job"/>
+        </a-form-item>
+        <a-form-item label="投递地址">
+          <a-input v-model:value="newRow.link"/>
+        </a-form-item>
+        <a-form-item label="投递时间">
+          <a-date-picker
+              v-model:value="newRow.submitTime"
+              format="YYYY-MM-DD HH:mm:ss"
+              valueFormat="YYYY-MM-DD HH:mm:ss"
+              :show-time="{ defaultValue: dayjs('00:00:00', 'HH:mm:ss') }"
+          />
+        </a-form-item>
+        <a-form-item label="状态">
+          <a-radio-group v-model:value="newRow.status">
+            <a-radio v-for="(value, key) in status" :key="key" :value="key">{{ key }}</a-radio>
+          </a-radio-group>
+        </a-form-item>
+        <a-form-item label="岗位描述">
+          <a-textarea v-model:value="newRow.jd" placeholder="请输入岗位详情" :rows="20"/>
+        </a-form-item>
+        <a-form-item label="备注">
+          <a-textarea v-model:value="newRow.comment" placeholder="备注" :rows="5"/>
+        </a-form-item>
+      </a-form>
+    </a-modal>
     <a-modal v-model:visible="showDetail" title="详情" @ok="handleDetailOk" style="width: 50vw">
       <a-descriptions bordered :column="1">
-        <a-descriptions-item v-for="(value, key) in detailInfo" :key="key" :label="key">
+        <a-descriptions-item class="descriptions-item" v-for="(value, key) in rowInfo" :key="key" :label="key">
           {{ value }}
         </a-descriptions-item>
       </a-descriptions>
@@ -40,11 +83,9 @@
         <a-form-item label="公司" name="公司">
           <a-input v-model:value="editData.company"/>
         </a-form-item>
-
         <a-form-item label="岗位" name="job">
           <a-input v-model:value="editData.job"/>
         </a-form-item>
-
         <a-form-item label="投递地址" name="link">
           <a-input v-model:value="editData.link"/>
         </a-form-item>
@@ -56,42 +97,20 @@
               :show-time="{ defaultValue: dayjs('00:00:00', 'HH:mm:ss') }"
           />
         </a-form-item>
-      </a-form>
-    </a-modal>
-    <a-modal v-model:visible="showAdd" title="新增数据" @ok="handleAddOk">
-      <a-form
-          :model="newRow"
-          name="basic"
-          :label-col="{ span: 6 }"
-          :wrapper-col="{ span: 16 }"
-          autocomplete="off"
-      >
-        <a-form-item label="公司" name="公司">
-          <a-input v-model:value="newRow.company"/>
+        <a-form-item label="状态">
+          <a-radio-group v-model:value="editData.status">
+            <a-radio v-for="(value, key) in status" :key="key" :value="key">{{ key }}</a-radio>
+          </a-radio-group>
         </a-form-item>
-
-        <a-form-item label="岗位" name="job">
-          <a-input v-model:value="newRow.job"/>
-        </a-form-item>
-
-        <a-form-item label="投递地址" name="link">
-          <a-input v-model:value="newRow.link"/>
-        </a-form-item>
-
-        <a-form-item label="投递时间" name="submitTime">
-          <a-date-picker
-              v-model:value="newRow.submitTime"
-              format="YYYY-MM-DD HH:mm:ss"
-              valueFormat="YYYY-MM-DD HH:mm:ss"
-              :show-time="{ defaultValue: dayjs('00:00:00', 'HH:mm:ss') }"
-          />
-        </a-form-item>
-
         <a-form-item label="岗位描述" name="jd">
-          <a-input v-model:value="newRow.jd"/>
+          <a-textarea v-model:value="editData.jd" placeholder="请输入岗位详情" :rows="20"/>
+        </a-form-item>
+        <a-form-item label="备注" name="jd">
+          <a-textarea v-model:value="editData.comment" placeholder="备注" :rows="5"/>
         </a-form-item>
       </a-form>
     </a-modal>
+
   </div>
 </template>
 
@@ -101,52 +120,60 @@ import dayjs from 'dayjs'
 
 export default {
   setup() {
+    const key2title = {
+      company: '公司',
+      job: '岗位',
+      link: '投递连接',
+      submitTime: '投递时间',
+      status: '状态',
+      jd: '岗位详情',
+      comment: '备注',
+    }
+    const status = {
+      '筛选中': 'blue',
+      '流程中': 'green',
+      '已终止': 'red',
+      'OC': 'purple'
+    }
     const columns = [
       {
-        title: '公司',
+        title: key2title.company,
         dataIndex: 'company',
         key: 'company',
       },
       {
-        title: '岗位',
+        title: key2title.job,
         dataIndex: 'job',
         key: 'job',
       },
       {
-        title: '投递连接',
+        title: key2title.link,
         dataIndex: 'link',
         key: 'link',
       },
       {
-        title: '投递时间',
+        title: key2title.submitTime,
         dataIndex: 'submitTime',
         key: 'submitTime',
+      },
+      {
+        title: key2title.status,
+        dataIndex: 'status',
+        key: 'status',
       },
       {
         title: '操作',
         dataIndex: 'operation',
       }
     ]
-    const dataSource = ref([{
-      "company": "丰疆智能",
-      "job": "移动客户端开发工程师",
-      "link": "https://fjdynamics.zhiye.com/Portal/Apply/Index",
-      "submitTime": "2022-08-14 00:37:48",
-      "key": "1"
-    }])
+    const dataSource = ref([])
     const count = computed(() => dataSource.value.length + 1)
 
     let showAdd = ref(false)
-    let newRow = reactive({
-      company: '',
-      job: '',
-      link: '',
-      submitTime: '',
-      jd: '',
-    })
+    let newRow = reactive({})
 
     let showDetail = ref(false)
-    let detailInfo = ref({})
+    let rowInfo = ref({})
 
     let showEdit = ref(false)
     let editData = ref({})
@@ -179,11 +206,9 @@ export default {
     }
 
     const seeDetail = (recorde) => {
-      for (let key in recorde) {
-        let title = key2title(key)
-        if (title !== '') {
-          detailInfo.value[title] = recorde[key]
-        }
+      rowInfo.value = {}
+      for (let key in key2title) {
+        rowInfo.value[key2title[key]] = recorde[key]
       }
       showDetail.value = true
     }
@@ -206,16 +231,6 @@ export default {
       save()
     }
 
-
-    const key2title = (key) => {
-      for (let item of columns) {
-        if (item.key === key) {
-          return item.title
-        }
-      }
-      return ""
-    }
-
     const read = () => {
       window.ipcRenderer.send("read")
     }
@@ -230,12 +245,13 @@ export default {
     return {
       dayjs,
 
+      status,
       dataSource,
       columns,
       showAdd,
       newRow,
       showDetail,
-      detailInfo,
+      rowInfo,
       showEdit,
       editData,
 
@@ -260,5 +276,9 @@ export default {
 <style>
 #main {
   padding: 30px;
+}
+
+.descriptions-item {
+  white-space: pre-line;
 }
 </style>
