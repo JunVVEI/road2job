@@ -1,5 +1,6 @@
 <template>
   <div id="main">
+
     <a-button class="editable-add-btn" style="margin-bottom: 8px" @click="handleAdd">Add</a-button>
     <a-table :dataSource="dataSource" :columns="columns" bordered :pagination="false">
       <template #bodyCell="{ column, text, record}">
@@ -24,6 +25,35 @@
             <a>删除</a>
           </a-popconfirm>
         </template>
+      </template>
+
+      <template
+          #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }"
+      >
+        <div style="padding: 8px">
+          <a-input
+              ref="searchInput"
+              :placeholder="`Search ${column.dataIndex}`"
+              :value="selectedKeys[0]"
+              style="width: 188px; margin-bottom: 8px; display: block"
+              @change="e => setSelectedKeys(e.target.value ? [e.target.value] : [])"
+              @pressEnter="handleSearch(selectedKeys, confirm, column.dataIndex)"
+          />
+          <a-button
+              type="primary"
+              size="small"
+              style="width: 90px; margin-right: 8px"
+              @click="handleSearch(selectedKeys, confirm, column.dataIndex)"
+          >
+            <template #icon>
+              <SearchOutlined/>
+            </template>
+            Search
+          </a-button>
+          <a-button size="small" style="width: 90px" @click="handleReset(clearFilters)">
+            Reset
+          </a-button>
+        </div>
       </template>
     </a-table>
 
@@ -133,13 +163,32 @@ export default {
       '筛选中': 'blue',
       '流程中': 'green',
       '已终止': 'red',
-      'OC': 'purple'
+      'OC': 'purple',
+      '无回应': 'pink'
     }
     const columns = [
+      {
+        dataIndex: 'number',
+        key: 'number',
+        title: '序号',
+        width: 70,
+        align: 'center',
+        customRender: (value) => value.index + 1
+      },
       {
         title: key2title.company,
         dataIndex: 'company',
         key: 'company',
+        customFilterDropdown: true,
+        onFilter: (value, record) =>
+            record.company.toString().toLowerCase().includes(value.toLowerCase()),
+        onFilterDropdownVisibleChange: visible => {
+          if (visible) {
+            setTimeout(() => {
+              searchInput.value.focus();
+            }, 100);
+          }
+        },
       },
       {
         title: key2title.job,
@@ -150,16 +199,43 @@ export default {
         title: key2title.link,
         dataIndex: 'link',
         key: 'link',
+        ellipsis: true
       },
       {
         title: key2title.submitTime,
         dataIndex: 'submitTime',
         key: 'submitTime',
+        sorter: (a, b) => {
+          return a.submitTime < b.submitTime ? 1 : -1
+        }
       },
       {
         title: key2title.status,
         dataIndex: 'status',
         key: 'status',
+        filters: [
+          {
+            text: '筛选中',
+            value: '筛选中',
+          },
+          {
+            text: '流程中',
+            value: '流程中',
+          },
+          {
+            text: '已终止',
+            value: '已终止',
+          },
+          {
+            text: 'OC',
+            value: 'OC',
+          },
+          {
+            text: '无回应',
+            value: '无回应',
+          }
+        ],
+        onFilter: (value, record) => record.status.indexOf(value) === 0,
       },
       {
         title: '操作',
@@ -178,17 +254,23 @@ export default {
     let showEdit = ref(false)
     let editData = ref({})
 
+    let searchInput = ref();
+    let state = reactive({
+      searchText: '',
+      searchedColumn: '',
+    });
+
     onMounted(() => {
       window.ipcRenderer.on("dataSource", (e, arg) => {
         dataSource.value = JSON.parse(arg)
-      });
+      })
 
       read()
     })
 
     const handleAdd = () => {
       showAdd.value = true
-    };
+    }
     const handleAddOk = () => {
       const newData = JSON.parse(JSON.stringify(newRow))
       newData.key = `${count.value}`
@@ -214,7 +296,7 @@ export default {
     }
     const handleDetailOk = () => {
       showDetail.value = false
-    };
+    }
 
     const edit = (recorde) => {
       editData.value = JSON.parse(JSON.stringify(recorde))
@@ -227,9 +309,21 @@ export default {
     }
 
     const onDelete = key => {
-      dataSource.value = dataSource.value.filter(item => item.key !== key);
+      dataSource.value = dataSource.value.filter(item => item.key !== key)
       save()
     }
+
+    const handleSearch = (selectedKeys, confirm, dataIndex) => {
+      confirm();
+
+      state.searchText = selectedKeys[0];
+      state.searchedColumn = dataIndex;
+    };
+
+    const handleReset = clearFilters => {
+      clearFilters({confirm: true});
+      state.searchText = '';
+    };
 
     const read = () => {
       window.ipcRenderer.send("read")
@@ -254,9 +348,14 @@ export default {
       rowInfo,
       showEdit,
       editData,
+      searchInput,
+      state,
 
       handleAddOk,
       handleAdd,
+
+      handleSearch,
+      handleReset,
 
       seeDetail,
       handleDetailOk,
@@ -275,10 +374,10 @@ export default {
 
 <style>
 #main {
-  padding: 30px;
+  padding: 30px
 }
 
 .descriptions-item {
-  white-space: pre-line;
+  white-space: pre-line
 }
 </style>
